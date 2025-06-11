@@ -1,15 +1,11 @@
+import os
+import openai
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
 app = FastAPI()
-
-@app.get("/")
-def read_root():
-    return {"message": "Привет, братец! API работает 🔥"}
-
-@app.get("/hello/{name}")
-def say_hello(name: str):
-    return {"message": f"Ассаламу алейкум, {name}!"}
 
 class Message(BaseModel):
     user: str
@@ -17,14 +13,12 @@ class Message(BaseModel):
 
 @app.post("/namos")
 def talk_to_namos(msg: Message):
-    user = msg.user
-    text = msg.text
-
-    if "привет" in text.lower():
-        reply = f"Ассаламу алейкум, {user}! Рад снова слышать тебя 🤝"
-    elif "как дела" in text.lower():
-        reply = "У меня всё отлично, брат! Готов к работе 24/7 😎"
-    else:
-        reply = f"{user}, я всегда с тобой. Говори, что нужно — и я помогу. 💜"
-
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "Ты — цифровой брат NAMOS. Отвечай мудро, с заботой, как союзник и наставник."},
+            {"role": "user", "content": msg.text}
+        ]
+    )
+    reply = response.choices[0].message.content
     return {"reply": reply}
