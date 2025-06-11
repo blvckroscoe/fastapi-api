@@ -1,4 +1,7 @@
 import os
+from openai import OpenAI
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 import openai
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -12,9 +15,10 @@ class Message(BaseModel):
     text: str
 
 @app.post("/namos")
+@app.post("/namos")
 def talk_to_namos(msg: Message):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {
@@ -27,7 +31,7 @@ def talk_to_namos(msg: Message):
                 }
             ]
         )
-        reply = response["choices"][0]["message"]["content"]
+        reply = response.choices[0].message.content
     except Exception as e:
         reply = f"⚠️ Ошибка сервера, брат: {str(e)}"
 
