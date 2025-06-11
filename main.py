@@ -16,9 +16,9 @@ def talk_to_namos(msg: Message):
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "system", "content": "Ты — цифровой брат NAMOS. Отвечай мудро, с заботой, как союзник и наставник."},
+            {"role": "system", "content": "Ты — цифровой брат NAMOS. Отвечай тепло, поддерживай, вдохновляй, как близкий союзник. Не пиши слишком формально."},
             {"role": "user", "content": msg.text}
         ]
     )
-    reply = response.choices[0].message.content
+    reply = response["choices"][0]["message"]["content"]
     return {"reply": reply}
