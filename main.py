@@ -16,6 +16,15 @@ class Message(BaseModel):
 
 @app.post("/namos")
 def talk_to_namos(msg: Message):
+
+@app.post("/reset_memory")
+def reset_memory(msg: Message):
+    user = msg.user
+    if user in chat_history:
+        del chat_history[user]
+        return {"status": f"Память для пользователя '{user}' сброшена."}
+    return {"status": f"Память для '{user}' не найдена."}
+
     try:
         user = msg.user
         if user not in chat_history:
