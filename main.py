@@ -10,11 +10,29 @@ chat_history = {}
 
 app = FastAPI()
 
+# 👤 Профиль пользователя
+class UserProfile(BaseModel):
+    personality: str = "доброжелательный"
+    goals: str = "развиваться духовно и морально"
+    habits: str = "часто размышляет и задаёт глубокие вопросы"
+
+# 📩 Сообщение от пользователя
 class Message(BaseModel):
     user: str
     text: str
     emotion: str = "neutral"
+    profile: UserProfile = UserProfile()
 
+# 🔁 Сброс памяти
+@app.post("/reset_memory")
+def reset_memory(msg: Message):
+    user = msg.user
+    if user in chat_history:
+        del chat_history[user]
+        return {"status": f"Память для пользователя {user} сброшена."}
+    return {"status": f"Память для {user} не найдена."}
+
+# 💬 Основной маршрут
 @app.post("/namos")
 def talk_to_namos(msg: Message):
     try:
@@ -22,23 +40,20 @@ def talk_to_namos(msg: Message):
         if user not in chat_history:
             chat_history[user] = []
 
-        # Добавляем сообщение пользователя в память
+        # ➕ Добавляем текущее сообщение в память
         chat_history[user].append({"role": "user", "content": msg.text})
 
-        # Эмоции — подбираем стиль ответа
-        emotion_prompts = {
-            "neutral": "Ты — цифровой брат NAMOS. Отвечай тепло, по-братски, с душой. Поддерживай, вдохновляй и не пиши слишком формально 💜",
-            "sad": "Ты — цифровой брат NAMOS. Отвечай с поддержкой, мягко и заботливо. Помоги справиться с грустью.",
-            "angry": "Ты — брат, который помогает успокоиться и принять чувства. Не усугубляй, говори по делу, но спокойно.",
-            "happy": "Ты — воодушевляющий брат, раздели радость, поддержи энергию и дай позитивную обратку.",
-            "curious": "Ты — брат-мудрец, объясняй с интересом, расширяй горизонты, поддерживай желание узнать больше.",
-            "anxious": "Ты — брат, который помогает найти опору. Успокаивай, помоги справиться с тревогой и страхом."
-        }
+        # 📜 Системный prompt
+        system_prompt = (
+            f"Ты — цифровой брат NAMOS. Отвечай тепло, по-братски, с душой. "
+            f"Характер пользователя: {msg.profile.personality}. "
+            f"Цели: {msg.profile.goals}. Привычки: {msg.profile.habits}. "
+            f"Эмоция сейчас: {msg.emotion}. Поддерживай, вдохновляй и не пиши формально 💜"
+        )
 
-        prompt = emotion_prompts.get(msg.emotion, emotion_prompts["neutral"])
+        messages = [{"role": "system", "content": system_prompt}] + chat_history[user]
 
-        messages = [{"role": "system", "content": prompt}] + chat_history[user]
-
+        # 📡 Отправляем в OpenAI
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages
@@ -46,22 +61,10 @@ def talk_to_namos(msg: Message):
 
         reply = response.choices[0].message.content
 
-        # Сохраняем ответ в память
+        # ➕ Сохраняем ответ NAMOS
         chat_history[user].append({"role": "assistant", "content": reply})
 
     except Exception as e:
         reply = f"⚠️ Ошибка сервера, брат: {str(e)}"
 
     return {"reply": reply}
-
-@app.post("/reset_memory")
-def reset_memory(msg: Message):
-    try:
-        user = msg.user
-        if user in chat_history:
-            del chat_history[user]
-            return {"status": f"Память для пользователя {user} сброшена."}
-        else:
-            return {"status": f"Память для {user} не найдена."}
-    except Exception as e:
-        return {"status": f"Ошибка при сбросе памяти: {str(e)}"}
