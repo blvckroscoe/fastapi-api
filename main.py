@@ -1,35 +1,20 @@
 import os
+import openai
 from openai import OpenAI
 from fastapi import FastAPI
 from pydantic import BaseModel
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Память: сохраняем переписку по пользователям
 chat_history = {}
 
 app = FastAPI()
 
-# 🔹 Основная модель для сообщений
 class Message(BaseModel):
     user: str
     text: str
 
-# 🔹 Модель только для сброса
-class UserOnly(BaseModel):
-    user: str
-
-# 🔹 Сброс памяти
-@app.post("/reset_memory")
-def reset_memory(data: UserOnly):
-    user = data.user
-    if user in chat_history:
-        del chat_history[user]
-        return {"status": f"Память для пользователя {user} сброшена."}
-    return {"status": f"Память для {user} не найдена."}
-
-# 🔹 Основной чат с NAMOS
 @app.post("/namos")
 def talk_to_namos(msg: Message):
     try:
@@ -37,10 +22,10 @@ def talk_to_namos(msg: Message):
         if user not in chat_history:
             chat_history[user] = []
 
-        # Добавляем сообщение пользователя
+        # Добавляем сообщение пользователя в память
         chat_history[user].append({"role": "user", "content": msg.text})
 
-        # Формируем историю + system prompt
+        # Создаём полный список сообщений (system + история)
         messages = [
             {
                 "role": "system",
@@ -48,6 +33,7 @@ def talk_to_namos(msg: Message):
             }
         ] + chat_history[user]
 
+        # Отправка в OpenAI
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages
@@ -55,10 +41,19 @@ def talk_to_namos(msg: Message):
 
         reply = response.choices[0].message.content
 
-        # Добавляем ответ в историю
+        # Добавляем ответ в память
         chat_history[user].append({"role": "assistant", "content": reply})
 
     except Exception as e:
         reply = f"⚠️ Ошибка сервера, брат: {str(e)}"
 
     return {"reply": reply}
+
+
+@app.post("/reset_memory")
+def reset_memory(msg: Message):
+    user = msg.user
+    if user in chat_history:
+        del chat_history[user]
+        return {"status": f"Память для пользователя {user} сброшена."}
+    return {"status": f"Память для {user} не найдена."}
