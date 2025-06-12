@@ -25,8 +25,6 @@ def reset_memory(msg: Message):
         return {"status": f"Память для пользователя '{user}' сброшена."}
     return {"status": f"Память для '{user}' не найдена."}
 
-    try:
-        user = msg.user
         if user not in chat_history:
             chat_history[user] = []
 
