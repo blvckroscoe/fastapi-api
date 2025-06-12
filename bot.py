@@ -1,33 +1,31 @@
-import logging
-import requests
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+import requests
+import os
 
-BOT_TOKEN = '7888027863:AAHBFNGcq3GAdVnobHWaELrB2SSRcn2Lhmk'
-API_URL = 'https://fastapi-api-4mlu.onrender.com/namos'
+API_URL = "https://fastapi-api-4mlu.onrender.com/namos"  
+BOT_TOKEN = os.getenv("7888027863:AAHBFNGcq3GAdVnobHWaELrB2SSRcn2Lhmk") 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет! Я цифровой брат NAMOS. Напиши мне что-нибудь 🙌")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user.first_name or "User"
-    text = update.message.text
+    user_input = update.message.text
+    username = update.message.chat.username or update.message.chat.id
 
-    data = {
-        "user": user,
-        "text": text
+    payload = {
+        "user": str(username),
+        "text": user_input
     }
 
     try:
-        response = requests.post(API_URL, json=data)
-        reply = response.json().get("reply", "⚠️ Ошибка при получении ответа.")
+        response = requests.post(API_URL, json=payload)
+        result = response.json()
+        await update.message.reply_text(result["reply"])
     except Exception as e:
-        reply = f"⚠️ Ошибка запроса: {e}"
+        await update.message.reply_text(f"⚠️ Ошибка: {str(e)}")
 
-    await update.message.reply_text(reply)
-
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-    
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    print("Бот запущен ✅")
     app.run_polling()
