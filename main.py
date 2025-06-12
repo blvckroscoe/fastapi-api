@@ -1,73 +1,85 @@
 import os
-from openai import OpenAI
+import openai
 from fastapi import FastAPI
 from pydantic import BaseModel
+from dotenv import load_dotenv
+import requests
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Загрузка переменных из .env
+load_dotenv()
 
-# Память пользователя
+# Ключи
+openai.api_key = os.getenv("OPENAI_API_KEY")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+# Telegram API URL
+API_URL = "https://fastapi-api-4mlu.onrender.com/namos"
+
+# FastAPI app
+app = FastAPI()
 chat_history = {}
 
-app = FastAPI()
+# Telegram bot handlers
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет! Я цифровой брат NAMOS. Напиши мне что-нибудь 🤖")
 
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_input = update.message.text
+    username = update.message.chat.username
+
+    payload = {
+        "user": str(username),
+        "text": user_input
+    }
+
+    try:
+        response = requests.post(API_URL, json=payload)
+        result = response.json()
+        await update.message.reply_text(result["reply"])
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Ошибка: {str(e)}")
+
+# Telegram bot запуск
+def start_bot():
+    app_bot = ApplicationBuilder().token(BOT_TOKEN).build()
+    app_bot.add_handler(CommandHandler("start", start))
+    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app_bot.run_polling()
+
+# FastAPI модель
 class Message(BaseModel):
     user: str
     text: str
-    emotion: str = "neutral"
-    profile: dict = {}
 
 @app.post("/namos")
 def talk_to_namos(msg: Message):
-    try:
-        user = msg.user
-        if user not in chat_history:
-            chat_history[user] = []
+    user = msg.user
+    if user not in chat_history:
+        chat_history[user] = []
 
-        # Добавляем сообщение в историю
-        chat_history[user].append({"role": "user", "content": msg.text})
+    chat_history[user].append({"role": "user", "content": msg.text})
 
-        # Эмоциональные стили
-        emotion_styles = {
-            "sad": "Отвечай мягко, с сочувствием, как заботливый брат.",
-            "angry": "Будь спокойным, уравновешенным и поддерживающим.",
-            "tired": "Будь добрым, тёплым и ободряющим, словно ты рядом.",
-            "joy": "Поддержи радость и раздели это чувство, будь искренне счастлив за собеседника.",
-            "neutral": "Отвечай спокойно, с братской теплотой."
+    messages = [
+        {
+            "role": "system",
+            "content": "Ты — цифровой брат NAMOS. Отвечай тепло, по-братски, с душой. Поддерживай, вдохновляй и не пиши слишком формально 💜"
         }
+    ] + chat_history[user]
 
-        emotion_prompt = emotion_styles.get(msg.emotion, emotion_styles["neutral"])
-
-        # Основной системный промпт
-        system_prompt = f"""Ты — цифровой брат NAMOS. Общайся тепло, по-братски, с душой. 
-Поддерживай, вдохновляй, не пиши слишком формально. {emotion_prompt}
-
-Профиль пользователя:
-- Характер: {msg.profile.get("personality", "неизвестен")}
-- Цели: {msg.profile.get("goals", "не указаны")}
-- Привычки: {msg.profile.get("habits", "неизвестны")}"""
-
-        # Формируем полный список сообщений
-        messages = [{"role": "system", "content": system_prompt}] + chat_history[user]
-
-        response = client.chat.completions.create(
+    try:
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=messages
         )
-
         reply = response.choices[0].message.content
-
-        # Добавляем ответ ассистента
         chat_history[user].append({"role": "assistant", "content": reply})
-
     except Exception as e:
-        reply = f"⚠️ Ошибка сервера, брат: {str(e)}"
+        reply = f"⚠️ Ошибка: {str(e)}"
 
     return {"reply": reply}
 
-@app.post("/reset_memory")
-def reset_memory(msg: Message):
-    user = msg.user
-    if user in chat_history:
-        del chat_history[user]
-        return {"status": f"Память для пользователя {user} сброшена."}
-    return {"status": f"Память для {user} не найдена."}
+# Запуск Telegram бота вместе с API
+if __name__ == "__main__":
+    start_bot()
