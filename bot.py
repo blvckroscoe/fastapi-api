@@ -2,11 +2,15 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 import requests
 import os
+from dotenv import load_dotenv
 
-API_URL = "https://fastapi-api-4mlu.onrender.com/namos"  
-BOT_TOKEN = os.getenv("7888027863:AAHBFNGcq3GAdVnobHWaELrB2SSRcn2Lhmk") 
+load_dotenv()
+
+API_URL = "https://fastapi-api-4mlu.onrender.com/namos"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Я цифровой брат NAMOS. Напиши мне что-нибудь 🙌")
+    await update.message.reply_text("Привет! Я цифровой брат NAMОS. Напиши мне что-нибудь 🧠")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text
@@ -26,6 +30,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+
+    print("🤖 Bot started...")
     app.run_polling()
